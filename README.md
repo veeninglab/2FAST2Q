@@ -17,22 +17,25 @@ The instructions on how to use 2FAST2Q;
 And some test data to run the program.
 
 
-# Before running:
+## Before running:
 
 Remove any "Undetermined" or unwanted fastq.gz files from the input folder as the program will attempt to align all the fastq files in the input folder.
 
 
-# How to use it
+## How to use it
 
 There are two versions of the program, with and without a basic user interface. 
 
 
 There is a graphical interface version for Windows, MacOS, and Linux.
-If for some reason the compiled version fails, please use the souce Python code from PyPI (`pip install fast2q`).
+If for some reason the compiled version fails, please use the souce Python code from PyPI 
 
+`pip install fast2q`
 
-# Using the executable files:
+Basic principle:
+![Screenshot](graphical_workings.png)
 
+## Using the executable files:
 
 ### 1.	
 Obtain a .csv file (this format can be obtained using the "save as" option in excel) with the nucleotide sequences of all used features, and their respective names (any name can be given, as long as it doesn’t repeat). See the provided "D39V_guides.csv" sample file. (Optional, only required when running in Counting mode)	
@@ -142,16 +145,19 @@ A path to the folder with either:
 
 2. all the uncompressed .fastq files
 
+
 ### 2  The path to the feature .csv file 
 (only needed when searching the fastq file for known sequences, such as with a CRISPRi-Seq experiment)
 
 A path to the .csv file with the features. See example "D39V_guides.csv" for layout (remove any headers).
 
+
 ### 3 the output directory
 
 A path to the output folder (for safety, a subfolder will always be created on this directory)
 
-## 4 Parameters
+
+### 4 Parameters
 
 The file extension type (default = fastq.gz) (change to the appropriate extension if uncompressed, for example ".fastq") 
 
@@ -176,10 +182,11 @@ For extracting all sequences at a certain position in the read select the extrac
 If the starting position varies within the read, it is possible to search for a delimiting known sequence, and then extract the sequence before/after it.
 In this case, it is allowed to input the following: 
  1) A 5' end search sequence, and the amount of bp the program should inventory after.
- 2) A 3' end search sequence, and the amount of bp the program should inventory after.
+ 2) A 3' end search sequence, and the amount of bp the program should inventory before.
  3) A 5'and 3' end search sequence, the program will return and count everything in between these two.
  4) How many mismatches are allowed in the search sequence
  
+
 ## While Running
 
 =================================
@@ -189,25 +196,21 @@ In this case, it is allowed to input the following:
 When running 2FAST2Q in the executable form, the initialization sequence might take up to a minute. 2FAST2Q will be operational when "Version X.X.X" appears on the window.
 Depending on the used computer, 2FAST2Q might take a few minutes to run, especially with large datasets and when using mismatch finding. If no errors are shown, 2FAST2Q is still running. GIVE IT TIME! 
 
-\\\\
 
-macOS use WARNING!
+### macOS use WARNING!
 
 
 When using the graphical user interface option, it's possible that the interface doesn’t close down after pressing OK and "gets stuck". The program is still running, and progress can be monitored by checking the indicated output folder. When the final "compiled.csv" appears on the folder, the program has finished running and can be closed using any means.
 A completion message should be given at the end. In any case, the program will be finish when the compiled.csv file is visible in the directory.
 
-\\\\
 
 +++++++++
 
 Note on mismatch searching: When performing mismatch searching, especially with feature libraries with thousands of features and/or when large sequencing datasets are used, 2FAST2Q might take 1-2 hours to run. In this case it is advisable to first run 2FAST2Q without mismatch search (see parameters), and check the output. Non mismatch search uses hashing, and thus it is fast. 
 
-+++++++++
-
 ## Output
 
-Upon completion, several files should be seen in the indicated output folder (when running in default mode only c, d, and e will be kept):
+Upon completion, several files should be seen in the indicated output folder (when running in default mode only c, d (only in cmd line mode), and e will be kept):
 
 	a. The uncompressed “*.fastq” files;
 
@@ -220,7 +223,7 @@ Upon completion, several files should be seen in the indicated output folder (wh
 	e. A “compiled.csv” file with the compilation of all the read counts per feature in all the inputted files. Use this latter in the next steps of the data analysis pipeline.
 
 
-Short Explanation
+### Short Explanation
 
 2FAST2Q will return the read counts for all the features present in the input file. A read will be aligned to its features if the minimum quality score in each nucleotide is >= the indicated phred-score, and if there is less than the indicated allowed mismatches. Like said before, these parameters can be modified by the user.
 
@@ -236,7 +239,7 @@ To avoid a too highly stringent cutoff. Allowing a mismatch allows the alignment
 However, there is a safe mechanism in place to prevent 2 or more features with mismatches from being aligned to the same read (the read is discarded in this case, as there is no way of knowing to which feature the read aligns to)
 
 
-Troubleshooting
+## Troubleshooting
 
 Running 2FAST2Q with example data :
 
