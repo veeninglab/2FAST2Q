@@ -17,11 +17,6 @@ The instructions on how to use 2FAST2Q;
 And some test data to run the program.
 
 
-## Before running:
-
-Remove any "Undetermined" or unwanted fastq.gz files from the input folder as the program will attempt to align all the fastq files in the input folder.
-
-
 ## How to use it
 
 There are two versions of the program, with and without a basic user interface. 
@@ -32,7 +27,7 @@ If for some reason the compiled version fails, please use the souce Python code 
 
 `pip install fast2q`
 
-Basic principle:
+Basic working principle behind 2FAST2Q:
 ![Screenshot](graphical_workings.png)
 
 ## Using the executable files:
@@ -128,7 +123,7 @@ There are also several optional parameters. For their description and input type
 
 	 `--mo MO     Running Mode (default=C) [Counter (C) / Extractor + Counter (EC)] `
 
-	 ` --k K       If enabled, keeps all temporary files (default is enabled) `
+	 ` --k K       If enabled, keeps all temporary files (default is disabled) `
 
 
 ## Inputs
@@ -150,6 +145,7 @@ A path to the folder with either:
 (only needed when searching the fastq file for known sequences, such as with a CRISPRi-Seq experiment)
 
 A path to the .csv file with the features. See example "D39V_guides.csv" for layout (remove any headers).
+Leave empty if you want to run the program in extract and count mode (extract all found features without alignements)
 
 
 ### 3 the output directory
@@ -167,7 +163,7 @@ The start position of the feature within the read (default = 0, meaning the sequ
 
 The length of the feature in bp (default = 20)
 
-The number of allowed mismatches per feature (default = 1)
+The number of allowed mismatches per feature (default = 1). When in extract + Count mode, this parameter is ignored as all different sequences are returned.
 
 RAM saving mode (default = no) 
 Only useful when allowing mismatch search, as search speed is increased by ~40% due to caching. 
