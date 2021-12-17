@@ -6,7 +6,7 @@ A Python3 program that counts sequence occurrences in raw FASTQ files.
 2FAST2Q requires absolutely no installation whatsoever, and can work with any classic CRISPRi experimental setup, or be used for any kind of sequence extraction from FASTQ files.
 
 The program is available as a standalone executable on MSwindows and MacOS, and can be downloaded from Zenodo by accessing the following link: 
-https://zenodo.org/record/5521996
+https://zenodo.org/record/5521996. MacOS users see instructions below ("Using the executable files" section)
 
 2FAST2Q is also available as a python package (https://pypi.org/project/fast2q/)
 
@@ -25,10 +25,9 @@ There are two versions of the program, with and without a basic user interface.
 There is a graphical interface version for Windows, MacOS, and Linux.
 If for some reason the compiled version fails, please use the souce Python code from PyPI 
 
-`pip install fast2q`
-
 Basic working principle behind 2FAST2Q:
 ![Screenshot](graphical_workings.png)
+
 
 ## Using the executable files:
 
@@ -48,22 +47,27 @@ Double click the program icon.
 
 
 
-If using the linux version:
 
-change directory to location of the file
+### If using the linux or the MacOS version:
+
+
+
+Open a new terminal and change directory to the folder with the downloaded file
+
+`cd /user/etc/Downloads/`
+
+make the file executable by typing and entering:
+
+`chmod +x ./2FAST2Q` (change to match the correct file name) 
 
 type and enter:
 
-`chmod +x ./2FAST2Q_Linux`
-
-type and enter:
-
-`./2FAST2Q_Linux`
+`./2FAST2Q` (change to match the correct file name) 
 
 
 
 ### 4.
-The program will initialize and ask, in turn, for directories and file paths. See the "inputs" section below for an explanation of these inputs.
+The program will initialize after a few seconds and ask, in turn, for directories and file paths. See the "inputs" section below for an explanation of these inputs.
 
 
 
