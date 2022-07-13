@@ -210,9 +210,12 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
             if len(reading) == 4: #a read always has 4 lines
                 
                 if not fixed_start:
-                    start,end=unfixed_starting_place_parser(reading[1],upstream,downstream,mismatch_search,lenght)
+                    start,end=unfixed_starting_place_parser(str(reading[1],"utf-8"),upstream,downstream,mismatch_search,lenght)
+                    if (start is not None) & (end is not None):
+                        if end < start: #if the end is not found or found before the start
+                            start=None
                 
-                if (fixed_start) or ((start is not None) & (end is not None)):
+                if (fixed_start) or (start is not None):
                     seq = str(reading[1][start:end].upper(),"utf-8")
                     quality = str(reading[3][start:end],"utf-8") #convert from bin to str
     
@@ -599,7 +602,7 @@ def initializer(cmd):
     for the used OS.
     Creates the output diretory and handles some parameter parsing"""
  
-    version = "2.4.1"
+    version = "2.4.2"
     
     print("\nVersion: {}".format(version))
 
@@ -649,11 +652,12 @@ def input_parser():
             parameters[param[1]]=os.getcwd()
             if param[1] == 'feature':
                 file = path_finder(os.getcwd(), ["*.csv"])
-                if len(file) > 1:
-                    input("There is more than one .csv in the current directory. If not directly indicating a path for sgRNA.csv, please only have 1 .csv file.") 
-                    raise Exception
-                if len(file) == 1:
-                    parameters[param[1]]=file[0][0]
+                if parameters['Running Mode']!="EC":
+                    if len(file) > 1:
+                        input("There is more than one .csv in the current directory. If not directly indicating a path for sgRNA.csv, please only have 1 .csv file.") 
+                        raise Exception
+                    if len(file) == 1:
+                        parameters[param[1]]=file[0][0]
         else:
             parameters[param[1]]=param[0]
         return parameters
@@ -686,9 +690,6 @@ def input_parser():
     paths_param = [[args.s,'seq_files'],
                    [args.g,'feature'],
                    [args.o,'out']]
-    
-    for param in paths_param:
-        parameters = current_dir_path_handling(param)
     
     parameters['out_file_name'] = "compiled"
     if args.fn is not None:
@@ -740,6 +741,9 @@ def input_parser():
     parameters['cpu']=False
     if args.cp is not None:
         parameters['cpu']=int(args.cp)
+        
+    for param in paths_param:
+        parameters = current_dir_path_handling(param)
         
     return parameters
 
