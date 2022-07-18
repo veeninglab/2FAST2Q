@@ -32,25 +32,16 @@ There is a graphical interface version for Windows, MacOS, and Linux.
 If for some reason the compiled version fails, please use the souce Python code from PyPI 
 
 Basic working principle behind 2FAST2Q:
-![Screenshot](graphical_workings.png)
+![](https://github.com/afombravo/2FAST2Q/blob/main/graphical_workings.png)
 
 
 ## Using the executable files:
 
 ### 1.	
-Obtain a .csv file (this format can be obtained using the "save as" option in excel) with the nucleotide sequences of all used features, and their respective names (any name can be given, as long as it doesn’t repeat). See the provided "D39V_guides.csv" sample file. (Optional, only required when running in Counting mode)	
-
-| sgRNA0001 | AATAGCATAGAAATCATACA |
-|-----------|----------------------|
-| sgRNA0002 | AGTGTTGATTTACCAACGTT |
-
-
-### 2.	
 Download the 2FAST2Q software version appropriate to the intended operating system.
 
-### 3. 
+### 2. 
 Double click the program icon. 
-
 
 
 
@@ -72,36 +63,49 @@ type and enter:
 
 
 
-### 4.
-The program will initialize after a few seconds and ask, in turn, for directories and file paths. See the "inputs" section below for an explanation of these inputs.
+### 3.
+The program will initialize after a few seconds, poping open the folowing window, and starting when 'OK' is selected. See the "inputs" section below for an explanation on these inputs.
+
+![](https://github.com/afombravo/2FAST2Q/blob/main/C_mode.gif)
+
+
+The default running mode is in "Counter" mode, however the user might want to run 2FAST2Q in 'Extract and Counter' mode where features are not aligned to a reference, but *de novo* extracted from the file based on indicated search sequences. Consider the folowing example:
+
+![](https://github.com/afombravo/2FAST2Q/blob/main/EC_mode.gif)
 
 
 
 ## Using the non executable files (recommendable if the executable file is buggy)
+	
 
 ### 1.	
-Obtain the .csv file with the features like in step 1 of the previous instructions. (Optional, only required when running in Counting mode)	
-
-### 2.	
 Download the 2FAST2Q Python3 module using pip install: 
 `pip install fast2q`.
 
-### 3. For starting the graphical interface mode:
+### 2. For starting the graphical interface mode:
 type `python -m fast2q`
 
-### 3.1 For starting the non-graphical interface mode:
+### 2.1 For starting the non-graphical interface mode:
 type `python -m fast2q -c`
 
 When running without specified parameters, 2FAST2Q will assume the current running directory has all the required files:
 
-* one .csv corresponding to features file
+* one .csv corresponding to features file (not required in 'Extract and Count' mode)
 	
 * the .FASTQ files
+
+How it looks when running in the default 'Counter' mode:
+
+![](https://github.com/afombravo/2FAST2Q/blob/main/C_mode_cmd.gif)
+
+How it looks when running in the 'Extract and Counter' mode:
+
+![](https://github.com/afombravo/2FAST2Q/blob/main/Ec_mode_cmd.gif)
 
 
 There are also several optional parameters. For their description and input type. A more in-depth description is provided below:
 
-	`python -m fast2q -h`
+	 `python -m fast2q -h`
 
 	 `-h, --help  show this help message and exit `
 
@@ -129,7 +133,13 @@ There are also several optional parameters. For their description and input type
 
 	 `--ds DS     Downstream search sequence `
 
-	 `--ms MS     mismatches allowed when searching reads with Up/Down stream sequences `
+	 `--msu MSU   mismatches allowed when searching reads in the upstream sequence`
+
+  	 `--msd MSD   mismatches allowed when searching reads in the downstream sequence`
+
+  	 `--qsu QSU   Minimal Phred-score (default=30) in the upstream search sequence`
+
+  	 `--qsd QSD   Minimal Phred-score (default=30) in the downstream search sequence`
 
 	 `--mo MO     Running Mode (default=C) [Counter (C) / Extractor + Counter (EC)] `
 	 
@@ -148,7 +158,13 @@ A path to the folder with the sequencing files (it doesn´t matter if in .gz or 
 
 ### 2  The path to the feature .csv file (optional) (assumed to be the only .csv file in the current directory when using the cmd line version and no inputs are given)
 Only needed when searching the fastq file for known sequences, such as with a CRISPRi-Seq experiment.
-A path to the .csv file with the features. See example "D39V_guides.csv" for layout (remove any headers).
+A path to the .csv file (this format can be obtained using the "save as" option in excel) with the nucleotide sequences of all used features, and their respective names (any name can be given, as long as it doesn’t repeat). See the provided "D39V_guides.csv" sample file. (Optional, only required when running in Counting mode)	
+
+| sgRNA0001 | AATAGCATAGAAATCATACA |
+|-----------|----------------------|
+| sgRNA0002 | AGTGTTGATTTACCAACGTT |
+
+
 Leave empty if you want to run the program in extract and count mode (extract all found features without alignements)
 
 
