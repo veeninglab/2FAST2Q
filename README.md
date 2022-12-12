@@ -19,8 +19,11 @@ And some test data to run the program.
 2FAST2Q is published as part of a CRISPRi-seq protocol:
 https://www.nature.com/articles/s41596-021-00639-6
 
-A more in depth description of the program is also available as a preprint:
-https://www.biorxiv.org/content/10.1101/2021.12.17.473121v1
+A more in depth description of the program is also available:
+
+
+Bravo AM, Typas A, Veening J. 2022. 2FAST2Q: a general-purpose sequence search and counting program for FASTQ files. PeerJ 10:e14041 : https://peerj.com/articles/14041/
+
 
 
 ## How to use it
@@ -133,9 +136,9 @@ There are also several optional parameters. For their description and input type
 
 	 `--ds DS     Downstream search sequence `
 
-	 `--msu MSU   mismatches allowed when searching reads in the upstream sequence`
+	 `--msu MSU   mismatches allowed in the upstream sequence`
 
-  	 `--msd MSD   mismatches allowed when searching reads in the downstream sequence`
+  	 `--msd MSD   mismatches allowed in the downstream sequence`
 
   	 `--qsu QSU   Minimal Phred-score (default=30) in the upstream search sequence`
 
@@ -222,13 +225,15 @@ A completion message should be given at the end. In any case, the program will b
 
 Upon completion, several files should be seen in the indicated output folder (when running in default mode only b, c (only in cmd line mode), and d will be kept):
 
-	a. “*_reads.csv” files corresponding to the read counts per feature per inputted sequencing file;
+	a. 	“*_reads.csv” files corresponding to the read counts per feature per inputted sequencing file; 
 
-	b. A “compiled_stats.csv” containing all the relevant input/output information about the 2FAST2Q analysis;
+	b.	A “compiled_stats.csv” containing all the relevant input/output information about the 2FAST2Q analysis; 
 
-	c. A bar plot "reads_plot.png" representing the total number of reads, and valid reads, per sample;
+	c.	A “compiled.csv” file with the compilation of all the read counts per feature in all the inputted files. Use this latter in the next steps of the data analysis pipeline. 
 
-	d. A “compiled.csv” file with the compilation of all the read counts per feature in all the inputted files. Use this latter in the next steps of the data analysis pipeline.
+	d.	A bar plot "reads_plot.png" with the number of total and quality passed reads (absolute), and in percentage ("reads_plot_percentage.png"), per sample; 
+
+	e. 	2 other violin plots with the distribution of the found features per sample are also presented (normalized for reads per milion, and absolute numbers). The interquartile distribution is also ploted for each sample (25%-75%)
 
 
 ### Short Explanation
