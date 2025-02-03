@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from io import SEEK_END
 import zlib
+from colorama import Fore
+import pkg_resources
 
 #####################
 
@@ -52,7 +54,7 @@ def path_parser(folder_path, extension):
         ordered = [path[0] for path in sorted(pathing, key=lambda e: e[-1])]#[::-1]
 
         if ordered == []:
-            input(f"Check the path to the {extension[1:]} files folder. No files of this type found.\nPress enter to exit")
+            print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] Check the path to the {extension} files folder. No files of this type found.\n")
             raise Exception
 
     else:
@@ -67,13 +69,14 @@ def features_loader(guides):
     Features class as respective value. If duplicated features sequences exist, 
     this will be caught in here"""
     
-    print("\nLoading Features")
+    print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] Loading Features")
     
     if not os.path.isfile(guides):
-        input("\nCheck the path to the sgRNA file.\nNo file found in the following path: {}\nPress enter to exit".format(guides))
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] Check the path to the features file.\nNo .csv file found in the following path: {guides}\n")
         raise Exception
     
     features = {}
+    names = set()
     
     try:
         with open(guides) as current: 
@@ -83,18 +86,23 @@ def features_loader(guides):
                 line = line.split(",")
                 sequence = line[1].upper()
                 sequence = sequence.replace(" ", "")
+                name = line[0]
                 
+                if name in names:   
+                    print(f"{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] The name {name} seems to appear at least twice. This MIGHT result in unexpected behaviour. Please have only unique name entries in your features.csv file.")
+
                 if sequence not in features:
-                    features[sequence] = Features(line[0], 0)
+                    features[sequence] = Features(name, 0)
+                    names.add(name)
                     
                 else:
-                    print(f"\nWarning!!\n{features[sequence].name} and {line[0]} share the same sequence. Only {features[sequence].name} will be considered valid.")
+                    print(f"{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] {features[sequence].name} and {name} share the same sequence. Only {features[sequence].name} will be considered valid. {name} will be ignored.")
 
     except IndexError:
-        input("\nThe given .csv file doesn't seem to be comma separated. Please double check that the file's column separation is ','\nPress enter to exit")
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] The given .csv file doesn't seem to be comma separated. Please double check that the file's column separation is ','\n")
         raise Exception
-        
-    print(f"\n{len(features)} different features were provided.")
+    
+    print(f"{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] {len(features)} different features were provided.")
     return features
 
 def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preprocess=False):
@@ -109,7 +117,7 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
     read increase of 1 (done by calling .counts from the respective feature class 
     from the feature class dictionary).
     If the read doesnt have a perfect match, it is sent for mismatch comparison
-    via the "imperfect_alignment" function.
+    via the "mismatch_search_handler" function.
     """
 
     def binary_converter(features):
@@ -128,7 +136,7 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
             container[sequence] = seq2bin(sequence)
         return container
     
-    def unfixed_starting_place_parser(read,qual,param):
+    def unfixed_starting_place_parser(read,qual,param,i):
         
         """ Determines the starting place of a read trimming based on the
         inputed parameters for upstream/downstream sequence matching. 
@@ -139,34 +147,41 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
         start,end = None,None
 
         if (param['upstream'] is not None) & (param['downstream'] is not None):
-            start=border_finder(param['upstream'],read_bin,param['miss_search_up'])
-            end=border_finder(param['downstream'],read_bin,param['miss_search_down'])
-            
-            if (start is not None) & (end is not None):
-                qual_up = str(qual[start:start+len(param['upstream'])],"utf-8")
-                qual_down = str(qual[end:end+len(param['downstream'])],"utf-8")
-                
-                if (len(param['quality_set_up'].intersection(qual_up)) == 0) &\
-                    (len(param['quality_set_down'].intersection(qual_down)) == 0):
-                    start+=len(param['upstream'])
-                    return start,end
-
-        elif (param['upstream'] is not None) & (param['downstream'] is None):
-            start=border_finder(param['upstream'],read_bin,param['miss_search_up'])
+            start=border_finder(param['upstream_bin'][i],
+                                read_bin,param['miss_search_up'])
             
             if start is not None:
-                qual_up = str(qual[start:start+len(param['upstream'])],"utf-8")
+                end=border_finder(param['downstream_bin'][i],
+                                  read_bin,param['miss_search_down'],
+                                  start_place=start+1)
+    
+                if end is not None:
+                    qual_up = str(qual[start:start+len(param['upstream_bin'][i])],"utf-8")
+                    qual_down = str(qual[end:end+len(param['downstream_bin'][i])],"utf-8")
+                    
+                    if (len(param['quality_set_up'].intersection(qual_up)) == 0) &\
+                        (len(param['quality_set_down'].intersection(qual_down)) == 0):
+                        start+=len(param['upstream_bin'][i])
+                        return start,end
+
+        elif (param['upstream'] is not None) & (param['downstream'] is None):
+            start=border_finder(param['upstream_bin'][i],
+                                read_bin,param['miss_search_up'])
+            
+            if start is not None:
+                qual_up = str(qual[start:start+len(param['upstream_bin'][i])],"utf-8")
                 
                 if len(param['quality_set_up'].intersection(qual_up)) == 0:
-                    start+=len(param['upstream'])
+                    start+=len(param['upstream_bin'][i])
                     end = start + param['length']
                     return start,end
             
         elif (param['upstream'] is None) & (param['downstream'] is not None):
-            end=border_finder(param['downstream'],read_bin,param['miss_search_down'])
+            end=border_finder(param['downstream_bin'][i],
+                              read_bin,param['miss_search_down'])
             
             if end is not None:
-                qual_down = str(qual[end:end+len(param['downstream'])],"utf-8")
+                qual_down = str(qual[end:end+len(param['downstream_bin'][i])],"utf-8")
                 
                 if len(param['quality_set_down'].intersection(qual_down)) == 0:
                     start = end-param['length']
@@ -178,27 +193,10 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
         
         def getuncompressedsize(raw):
             
-            """ Estimates the total size of a .gz compressed 
-            file for the progress bars """
-            
-            def estimate_uncompressed_gz_size(filename):
-                with open(filename, "rb") as gz_in:
-                    sample = gz_in.read(1000000)
-                    gz_in.seek(-4, SEEK_END)
-                    file_size = os.fstat(gz_in.fileno()).st_size
-
-                dobj = zlib.decompressobj(31)
-                d_sample = dobj.decompress(sample)
-            
-                compressed_len = len(sample) - len(dobj.unconsumed_tail)
-                decompressed_len = len(d_sample)
-            
-                return int(file_size * decompressed_len / compressed_len)
-            
             if ext == ".gz":
-                return estimate_uncompressed_gz_size(raw)
+                return sum(1 for _ in gzip.open(raw, 'rt'))
             else:
-                return os.path.getsize(raw)
+                return sum(1 for _ in open(raw, 'rt'))
 
         if o > cpu:
             current = mp.current_process()
@@ -207,64 +205,88 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
             pos = i+1
         total_file_size = getuncompressedsize(raw)
         tqdm_text = f"Processing file {i+1} out of {o}"
-        return tqdm(total=total_file_size,desc=tqdm_text, position=pos,colour="green",leave=False,ascii=True,unit="characters")
+        return tqdm(total=total_file_size,desc=tqdm_text, position=pos,colour="green",leave=False,ascii=True,unit="lines")
     
-    def fastq_parser(current,end,start,features,failed_reads,passed_reads,fixed_start):
+    def fastq_parser(current,features,failed_reads,passed_reads,fixed_start):
         
         reading = []
         mismatch = [n+1 for n in range(param['miss'])]
         perfect_counter, imperfect_counter, non_aligned_counter, reads,quality_failed = 0,0,0,0,0
         ram_clearance=ram_lock()
-        
+
         if param['miss'] != 0:
             binary_features = binary_converter(features)
 
         for line in current:
+            quality_failed_flag = np.zeros(param['search_iterations'])
             if (not preprocess) & (param['Progress bar']):
-                pbar.update(len(line))
+                pbar.update(1)
             reading.append(line[:-1])
             
             if len(reading) == 4: #a read always has 4 lines
                 
-                if not fixed_start:
-                    start,end=unfixed_starting_place_parser(str(reading[1],"utf-8"),\
-                                                            reading[3],\
-                                                            param)
-                        
-                    if (start is not None) & (end is not None):
-                        if end < start: #if the end is not found or found before the start
-                            start=None
+                full_feature = ""
+                for i in range(param['search_iterations']):
+            
+                    if not fixed_start:
 
-                if (fixed_start) or (start is not None):
-                    seq = str(reading[1][start:end].upper(),"utf-8")
-                    quality = str(reading[3][start:end],"utf-8") #convert from bin to str
-
-                    if len(param['quality_set'].intersection(quality)) == 0:
-                        
-                        if param['Running Mode']=='C':
-                            if seq in features:
-                                features[seq].counts += 1
-                                perfect_counter += 1
+                        start,end=unfixed_starting_place_parser(str(reading[1],"utf-8"),\
+                                                                reading[3],\
+                                                                param,i)
                             
-                            elif mismatch != []:
-                                features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter=\
-                                mismatch_search_handler(seq,mismatch,\
-                                                        failed_reads,binary_features,\
-                                                        imperfect_counter,features,\
-                                                        passed_reads,ram_clearance,non_aligned_counter)
-                                    
-                            else:
-                                non_aligned_counter += 1
+                        if (start is not None) & (end is not None):
+                            if end < start: #if the end is not found or found before the start
+                                start=None
+                                quality_failed_flag[i] = 1 #this includes reads without search sequences as failed at quality
                         else:
-                            if seq not in features:
-                                features[seq] = Features(seq, 1)
-                            else:
-                                features[seq].counts += 1
+                            quality_failed_flag[i] = 1
+    
+                    if fixed_start:
+                        start = param['start_positioning'][i]
+                        end = param['end_positioning'][i]
+    
+                    if (fixed_start) or (start is not None):
+                        seq = str(reading[1][start:end].upper(),"utf-8")
+                        quality = str(reading[3][start:end],"utf-8") #convert from bin to str
+    
+                        if len(param['quality_set'].intersection(quality)) == 0:
+                            full_feature += f":{seq}"
+                        else:
+                            quality_failed_flag[i] = 1          
+                
+                if full_feature != "":
+                    seq = full_feature[1:] #remove the first :
+                    if param['Running Mode']=='C':
+                        if seq in features:
+                            features[seq].counts += 1
                             perfect_counter += 1
-                            
-                    else:
-                        quality_failed += 1
 
+                        elif mismatch != []:
+                            features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter=\
+                            mismatch_search_handler(seq,
+                                                    mismatch,
+                                                    failed_reads,
+                                                    binary_features,
+                                                    imperfect_counter,
+                                                    features,
+                                                    passed_reads,
+                                                    ram_clearance,
+                                                    non_aligned_counter
+                                                    )
+
+                        else:
+                            non_aligned_counter += 1
+
+                    else:
+                        if seq not in features:
+                            features[seq] = Features(seq, 1)
+                        else:
+                            features[seq].counts += 1
+                        perfect_counter += 1
+                    
+                if quality_failed_flag.all():
+                    quality_failed += 1
+                
                 reading = []
                 reads += 1
                 
@@ -273,37 +295,49 @@ def reads_counter(i,o,raw,features,param,cpu,failed_reads,passed_reads,preproces
                     ram_clearance=ram_lock()
                 
                 if preprocess:
-                    if reads == 200000:
-                        return reads,perfect_counter,imperfect_counter,features,failed_reads,passed_reads
+                    if reads == 10000:
+                        return reads,perfect_counter,imperfect_counter,features,failed_reads,passed_reads,0,0
         
         if (not preprocess) & (param['Progress bar']):
             pbar.close()
 
         return reads,perfect_counter,imperfect_counter,features,failed_reads,passed_reads,non_aligned_counter,quality_failed
     
-    fixed_start,end,start = True,0,0
+    fixed_start = True
     # determining the read trimming starting/ending place
     if (param['upstream'] is None) & (param['downstream'] is None):
-        end = param['start'] + param['length']
-        start = param['start']
+        param['start_positioning'] = [int(n) for n in param['start'].split(",")]
+        param['end_positioning'] = [int(n)+param['length'] for n in param['start_positioning']]
+        param['search_iterations'] = len(param['end_positioning'])
+        
     else:
+        len_up,len_down = 0,0
         fixed_start = False
         if param['upstream'] is not None:
-            param['upstream']=seq2bin(param['upstream'].upper())
+            param['upstream_bin'] = [seq2bin(n.upper()) for n in param['upstream'].split(",")]
+            len_up = len(param['upstream_bin'])
         if param['downstream'] is not None:
-            param['downstream']=seq2bin(param['downstream'].upper())
+            param['downstream_bin'] = [seq2bin(n.upper()) for n in param['downstream'].split(",")]
+            len_down = len(param['downstream_bin'])
+            
+        if (param['downstream'] is not None) & (param['upstream'] is not None):
+            if len(param['downstream_bin']) != len(param['upstream_bin']):
+                print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] Up and Downstream sequences must be submitted in concurrent pairs, separated by ,.\n You submitted {len(param['downstream_bin'])} downstream sequences and {len(param['upstream_bin'])} upstream sequences.")
+                exit()
+                
+        param['search_iterations'] = max(len_up,len_down)
 
     _, ext = os.path.splitext(raw)
-
+    
     if (not preprocess) & (param['Progress bar']):
         pbar = progress_bar(i,o,raw,cpu)
     
     if ext == ".gz":
         with gzip.open(raw, "rb") as current:
-            return fastq_parser(current,end,start,features,failed_reads,passed_reads,fixed_start)
+            return fastq_parser(current,features,failed_reads,passed_reads,fixed_start)
     else:
         with open(raw, "rb")  as current:
-            return fastq_parser(current,end,start,features,failed_reads,passed_reads,fixed_start)
+            return fastq_parser(current,features,failed_reads,passed_reads,fixed_start)
 
 def seq2bin(sequence):
     
@@ -328,22 +362,22 @@ def binary_subtract(array1,array2,mismatch):
     return 1
 
 @njit
-def border_finder(seq,read,mismatch): 
+def border_finder(seq,read,mismatch,start_place=0): 
     
     """ Matches 2 sequences (after converting to int8 format)
     based on the allowed mismatches. Used for sequencing searching
     a start/end place in a read"""
-    
+
     s=seq.size
     r=read.size
     fall_over_index = r-s-1
-    for i,bp in enumerate(read): #range doesnt exist in njit
-        comparison = read[i:s+i]
+    for i,bp in enumerate(read[start_place:]): 
+        comparison = read[start_place+i:s+start_place+i]
         finder = binary_subtract(seq,comparison,mismatch)
         if i > fall_over_index:
             return
         if finder != 0:
-            return i
+            return i+start_place
 
 @njit
 def features_all_vs_all(binary_features,read,mismatch):
@@ -353,59 +387,50 @@ def features_all_vs_all(binary_features,read,mismatch):
     Returns the final mismatch score"""
     
     found = 0
+    r=read.size
     for guide in binary_features:
-        if binary_subtract(binary_features[guide],read,mismatch):
-            found+=1
-            found_guide = guide
-            if found>=2:
-                return
+        g=binary_features[guide].size
+        if g==r:
+            if binary_subtract(binary_features[guide],read,mismatch):
+                found+=1
+                found_guide = guide
+                if found>=2:
+                    return
     if found==1:
         return found_guide
-    return #not needed, but here for peace of mind
 
 def mismatch_search_handler(seq,mismatch,failed_reads,binary_features,imperfect_counter,features,passed_reads,ram_clearance,non_aligned_counter):
     
     """Converts a read into numpy int 8 form. Runs the imperfect alignment 
-    function for all number of inputed mismatches."""
+    search for all number of inputed mismatches."""
+    
+    if seq in failed_reads:
+        non_aligned_counter += 1
+        return features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter
+    
+    if seq in passed_reads:
+        features[passed_reads[seq]].counts += 1
+        imperfect_counter += 1
+        return features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter
     
     read=seq2bin(seq)                         
     for miss in mismatch:
 
-        # we already know this read is going to pass
-        if seq in passed_reads:
-            features[passed_reads[seq]].counts += 1
-            imperfect_counter += 1
-            break
+        feature = features_all_vs_all(binary_features, read, miss)
         
-        elif seq not in failed_reads:
-            features,imperfect_counter,feature=\
-                imperfect_alignment(read,binary_features,\
-                                    miss, imperfect_counter,\
-                                    features)
-            if ram_clearance:
-                if feature is None:
+        if feature is not None:
+            features[feature].counts += 1
+            imperfect_counter += 1
+            passed_reads[seq] = feature
+            return features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter
+    
+        else: 
+            if miss == mismatch[-1]:
+                #if function reaches here its because nothing was aligned anywhere
+                if ram_clearance:
                     failed_reads.add(seq)
-                    non_aligned_counter += 1
-                    break
-                else:
-                    passed_reads[seq] = feature
-        else:
-            non_aligned_counter += 1
-
-    return features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter
-
-def imperfect_alignment(read,binary_features, mismatch, counter, features):
-    
-    """ for the inputed read sequence, this compares if there is a feature 
-    with a sequence that is similar to it, to the indicated mismatch degree"""
-
-    feature = features_all_vs_all(binary_features, read, mismatch)
-    
-    if feature is not None:
-        features[feature].counts += 1
-        counter += 1
-
-    return features,counter,feature
+                non_aligned_counter += 1
+                return features,imperfect_counter,failed_reads,passed_reads,non_aligned_counter
 
 def aligner(raw,i,o,features,param,cpu,failed_reads,passed_reads):
 
@@ -440,7 +465,7 @@ def aligner(raw,i,o,features,param,cpu,failed_reads,passed_reads):
     stats_condition = f"#script ran in {timing} for file {name}. {perfect_counter+imperfect_counter} reads out of {reads} were aligned. {perfect_counter} were perfectly aligned. {imperfect_counter} were aligned with mismatch. {non_aligned_counter} passed quality filtering but were not aligned. {quality_failed} did not pass quality filtering."
     
     if not param['Progress bar']:
-        print(f"Sample {name} was processed in {timing}")
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] Sample {name} was processed in {timing}")
         
     try:
         master_list.sort(key = lambda master_list: int(master_list[0])) #numerical sorting
@@ -452,14 +477,14 @@ def aligner(raw,i,o,features,param,cpu,failed_reads,passed_reads):
     
     csvfile = os.path.join(param["directory"], name+"_reads.csv")
     csv_writer(csvfile, master_list)
-    
+
     return failed_reads,passed_reads
 
 def csv_writer(path, outfile):
     
     """ writes the indicated outfile into an .csv file in the directory"""
         
-    with open(path, "w", newline='') as output: #writes the output
+    with open(path, "w", newline='') as output: 
         writer = csv.writer(output)
         writer.writerows(outfile)
 
@@ -470,22 +495,33 @@ def inputs_handler():
     parameters=inputs_initializer()
 
     try:
-        parameters["start"]=int(parameters["start"])
+
         parameters["length"]=int(parameters["length"])
         parameters["miss"]=int(parameters["miss"])
         parameters["phred"]=int(parameters["phred"])
-        parameters["miss_search_up"]=int(parameters["miss_search_up"])
-        parameters["miss_search_down"]=int(parameters["miss_search_down"])
-        parameters["qual_up"]=int(parameters["qual_up"])
-        parameters["qual_down"]=int(parameters["qual_down"])
+        
+        if parameters['Search Features'] == "Custom":
+            parameters["miss_search_up"]=int(parameters["miss_search_up"])
+            parameters["miss_search_down"]=int(parameters["miss_search_down"])
+            parameters["qual_up"]=int(parameters["qual_up"])
+            parameters["qual_down"]=int(parameters["qual_down"])
+        else:
+            parameters["start"]="0"
+            parameters["miss_search_up"]=0
+            parameters["miss_search_down"]=0
+            parameters["qual_up"]=30
+            parameters["qual_down"]=30
+            parameters['upstream'] = None
+            parameters['downstream'] = None
+            
     except Exception:
-        print("\nPlease confirm you have provided the correct parameters.\nOnly numeric values are accepted in the folowing fields:\n-Feature read starting place;\n-Feature length;\n-mismatch;\n-Phred score.\n")
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] Please confirm you have provided the correct parameters.\nOnly numeric values are accepted in the folowing fields:\n-Feature read starting place;\n-Feature length;\n-mismatch;\n-Phred score.\n")
         exit()
     
     # avoids getting -1 and actually filtering by highest phred score by mistake
     if int(parameters["phred"]) == 0:
         parameters["phred"] = 1
-        
+
     if int(parameters["qual_up"]) == 0:
         parameters["qual_up"] = 1
         
@@ -513,21 +549,15 @@ def inputs_handler():
     else:
         parameters['Running Mode']="C"
         
-    if parameters['Running Mode']=='C':
-        if len(parameters) != 17:
-            print("Please confirm that all the input boxes are filled. Some parameters are missing.\nPress enter to exit")
-            exit()
-            
     parameters["cmd"] = False
     parameters['cpu'] = False
 
     return parameters
 
 def inputs_initializer():
+    """ Handles the graphical interface and all the parameter inputs """
     
-    """ Handles the graphical interface, and all the parameter inputs"""
-    
-    from tkinter import Entry,LabelFrame,Button,Label,Tk,filedialog,StringVar,OptionMenu
+    from tkinter import Entry, LabelFrame, Button, Label, Tk, filedialog, StringVar, OptionMenu, Toplevel, DISABLED, NORMAL
     
     def restart():
         root.quit()
@@ -536,104 +566,200 @@ def inputs_initializer():
         
     def submit():
         for arg in temporary:
-            if ("Use the Browse button to navigate, or paste a link" not in temporary[arg].get()) or\
-                ("" not in temporary[arg].get()):
+            if isinstance(temporary[arg], Entry):
+                value = temporary[arg].get()
+                if ("Use the Browse button to navigate, or paste a link" not in value) and (value != ""):
+                    parameters[arg] = value
+            elif isinstance(temporary[arg], StringVar):
                 parameters[arg] = temporary[arg].get()
         root.quit()
         root.destroy()
     
-    def directory(column,row,parameter,frame):
-        filename = filedialog.askdirectory(title = "Select a folder")
-        filing_parser(column,row,filename,parameter,frame)
+    def directory(column, row, parameter, frame):
+        filename = filedialog.askdirectory(title="Select a folder")
+        filing_parser(column, row, filename, parameter, frame)
         
-    def file(column,row,parameter,frame):
-        filename = filedialog.askopenfilename(title = "Select a file", filetypes = \
-            (("CSV files","*.csv"),("all files","*.*")) )
-        filing_parser(column,row,filename,parameter,frame)
+    def file(column, row, parameter, frame):
+        filename = filedialog.askopenfilename(title="Select a file", filetypes=(("CSV files", "*.csv"), ("all files", "*.*")))
+        filing_parser(column, row, filename, parameter, frame)
     
-    def filing_parser(column,row,filename,parameter,frame):
-        place = Entry(frame,borderwidth=5,width=125)
-        place.grid(row=row,column=column+1)
+    def filing_parser(column, row, filename, parameter, frame):
+        place = Entry(frame, borderwidth=5, width=50)
+        place.grid(row=row, column=column+1)
         place.insert(0, filename)
         parameters[parameter] = filename
 
-    def browsing(keyword,inputs,placeholder="Use the Browse button to navigate, or paste a link"):
-        title1,title2,row,column,function=inputs
-        frame=LabelFrame(root,text=title1,padx=5,pady=5)
-        frame.grid(row=row,column=column, columnspan=4)
-        button = Button(frame, text = title2,command = lambda: function(column,row,keyword,frame))
-        button.grid(column = column, row = row)
-        button_place = Entry(frame,borderwidth=5,width=125)
-        button_place.grid(row=row,column=column+1, columnspan=4)
+    def browsing(keyword, inputs, placeholder="Use the Browse button to navigate, or paste a link"):
+        title1, title2, row, column, function = inputs
+        frame = LabelFrame(root, text=title1, padx=5, pady=5)
+        frame.grid(row=row, column=column, columnspan=2)
+        button = Button(frame, text=title2, command=lambda: function(column, row, keyword, frame))
+        button.grid(column=column, row=row)
+        button_place = Entry(frame, borderwidth=5, width=50)
+        button_place.grid(row=row, column=column+1, columnspan=2)
         button_place.insert(0, placeholder)
-        temporary[keyword]=button_place
+        temporary[keyword] = button_place
         
-    def write_menu(keyword,inputs):
-        title,row,column,default=inputs
-        start = Entry(root,width=25,borderwidth=5)
-        start.grid(row=row,column=column+1,padx=20,pady=5)
+    def write_menu(keyword, inputs):
+        title, row, column, default = inputs
+        start = Entry(root, width=25, borderwidth=5)
+        start.grid(row=row, column=column+1, padx=5, pady=2)
         start.insert(0, default)
-        placeholder(row,column,title,10,1)
-        temporary[keyword]=start
+        placeholder(row, column, title, 10, 1)
+        temporary[keyword] = start
+        return start  # Return the Entry widget for reference
         
-    def dropdown(keyword,inputs):
-        default,option,row,column = inputs
-        file_ext = StringVar()
-        file_ext.set(default)
-        placeholder(row,column,keyword,20,1)
-        drop = OptionMenu(root, file_ext, default, option)
-        drop.grid(column = column+1,row = row)
-        temporary[keyword]=file_ext
+    def dropdown(keyword, inputs, command=None):
+        default, option, row, column = inputs
+        variable = StringVar()
+        variable.set(default)
+        placeholder(row, column, keyword, 10, 1)
+        options = [default] + (option if isinstance(option, list) else [option])
+        drop = OptionMenu(root, variable, *options, command=command)
+        drop.grid(column=column+1, row=row)
+        temporary[keyword] = variable
+        return variable  # Return the variable for tracing if needed
         
     def button_click(row, column, title, function):
-        button_ok = Button(root,text=title,padx=12,pady=5, width=15,command=function)
-        button_ok.grid(row=row, column=column,columnspan=1)
+        button_ok = Button(root, text=title, padx=5, pady=2, width=15, command=function)
+        button_ok.grid(row=row, column=column, columnspan=1)
         
-    def placeholder(row, column,title,padx,pady):
-        placeholder = Label(root, text=title)
-        placeholder.grid(row=row,column=column,padx=padx,pady=pady)
-        return placeholder
-        
+    def placeholder(row, column, title, padx, pady):
+        label = Label(root, text=title)
+        label.grid(row=row, column=column, padx=padx, pady=pady)
+        return label
+    
+    # Callback function to enable/disable "Feature length" Entry widget
+    def variable_length_callback(*args):
+        value = args[0]
+        if value == 'Yes':
+            length_entry.config(state=DISABLED)
+            variable_len_popup()
+        else:
+            length_entry.config(state=NORMAL)
+    
+    # Variable length feature popup
+    def variable_len_popup():
+        variable_window = Toplevel(root)
+        variable_window.title("Variable Length Options")
+        variable_window.minsize(300, 200)
+
+        input_labels = {
+            "upstream": ["Upstream search sequence", "None"],
+            "downstream": ["Downstream search sequence", "None"],
+            "miss_search_up": ["Mismatches in the upstream sequence", "0"],
+            "miss_search_down": ["Mismatches in the downstream sequence", "0"],
+            "qual_up": ["Minimal upstream sequence Phred-score", "30"],
+            "qual_down": ["Minimal downstream sequence Phred-score", "30"],
+        }
+
+        for i, (key, (label_text, default_value)) in enumerate(input_labels.items()):
+            Label(variable_window, text=label_text).grid(row=i, column=0, padx=10, pady=5)
+            var = StringVar()
+            entry = Entry(variable_window, width=25, textvariable=var)
+            entry.grid(row=i, column=1, padx=10, pady=5)
+            var.set(default_value)
+            temporary[key] = var
+
+        Button(variable_window, text="Submit", command=variable_window.destroy).grid(row=len(input_labels), column=0, columnspan=2, pady=10)
+    
+    def create_second_menu():
+        var = StringVar()
+        var.set("No")
+        placeholder(7, 0, "Variable length feature?", 10, 1)
+        OptionMenu(root, var, "No", "Yes", command=variable_length_callback).grid(column=1, row=7)
+        temporary['Variable length feature?'] = var
+    
+    # Callback function to trigger "Search Features" popup
+    def search_features_callback(*args):
+        value = temporary['Search Features'].get()
+        if value == 'Custom':
+            search_features_popup()
+
+    # Popup for Search Features
+    def search_features_popup():
+        search_window = Toplevel(root)
+        search_window.title("Search Features")
+        search_window.minsize(400, 300)
+
+        search_features = {
+            "start": ["Feature start position in the read", 0],
+            "upstream": ["Upstream search sequence", "None"],
+            "downstream": ["Downstream search sequence", "None"],
+            "miss_search_up": ["Mismatches in the upstream sequence", 0],
+            "miss_search_down": ["Mismatches in the downstream sequence", 0],
+            "qual_up": ["Minimal upstream sequence Phred-score", 30],
+            "qual_down": ["Minimal downstream sequence Phred-score", 30],
+        }
+
+        for i, (key, (label_text, default_value)) in enumerate(search_features.items()):
+            Label(search_window, text=label_text).grid(row=i, column=0, padx=10, pady=5)
+            var = StringVar()
+            entry = Entry(search_window, width=25, textvariable=var)
+            entry.grid(row=i, column=1, padx=10, pady=5)
+            var.set(default_value)
+            temporary[key] = var
+
+        Button(search_window, text="Submit", command=search_window.destroy).grid(row=len(search_features), column=0, columnspan=2, pady=10)
+
+    # Create Search Features OptionMenu
+    def create_search_features_menu():
+        var = StringVar()
+        var.set("Default")
+        placeholder(10, 0, "Search Features Options", 10, 1)
+        OptionMenu(root, var, "Default", "Custom", command=search_features_callback).grid(column=1, row=10)
+        temporary['Search Features'] = var
+    
+    ####
+    
     root = Tk()
     root.title("2FAST2Q Input Parameters Window")
-    root.minsize(425, 500)
-    parameters,temporary = {},{}  
-
-    browsing_inputs = {"seq_files":["Path to the .fastq(.gz) files folder","Browse",1,0,directory],
-                       "feature":["Path to the features .csv file","Browse",2,0,file],
-                       "out":["Path to the output folder","Browse",3,0,directory]}
-
-    default_inputs = {"out_file_name":["Output File Name",5,0,"Compiled"],
-                      "start":["Feature start position in the read",6,0,0],
-                      "length":["Feature length",7,0,20],
-                      "miss":["Allowed mismatches",8,0,1],
-                      "phred":["Minimal feature Phred-score",9,0,30],
-                      "delete":["Delete intermediary files [y/n]",10,0,"y"],
-                      "upstream":["Upstream search sequence",5,2,"None"],
-                      "downstream":["Downstream search sequence",8,2,"None"],
-                      "miss_search_up":["Mismatches in the upstream sequence",6,2,0],
-                      "miss_search_down":["Mismatches in the downstream sequence",9,2,0],
-                      "qual_up":["Minimal upstream sequence Phred-score",7,2,30],
-                      "qual_down":["Minimal downstream sequence Phred-score",10,2,30],}
+    root.geometry("450x500")  # Set the window to a tighter size
+    parameters, temporary = {}, {}  
     
-    dropdown_options = {"Running Mode":["Counter", "Extractor + Counter",4,0],
-                        "Progress bar":["Yes", "No",4,2]}
-
+    browsing_inputs = {
+        "seq_files": ["Path to the .fastq(.gz) files folder", "Browse", 1, 0, directory],
+        "feature": ["Path to the features .csv file", "Browse", 2, 0, file],
+        "out": ["Path to the output folder", "Browse", 3, 0, directory]
+    }
+    
+    default_inputs = {
+        "out_file_name": ["Output File Name", 4, 0, "compiled"],
+        "length": ["Feature length", 8, 0, 20],
+        "miss": ["Allowed mismatches in features", 5, 0, 1],
+        "phred": ["Minimal feature Phred-score in features", 6, 0, 30]}
+    
+    dropdown_options = {
+        "Running Mode": ["Counter", "Extractor + Counter", 9, 0],
+        "Progress bar": ["Yes", "No", 11, 0],
+        "Delete intermediary files": ["Yes", "No", 12, 0]
+    }
+    
+    # Dropdown for variable length feature
+    create_second_menu()
+    create_search_features_menu()
+    
     # Generating the dropdown browsing buttons
-    [dropdown(arg,dropdown_options[arg]) for arg in dropdown_options]
+    for arg in dropdown_options:
+        dropdown(arg, dropdown_options[arg])
     
     # Generating the file/folder browsing buttons
-    [browsing(arg,browsing_inputs[arg]) for arg in browsing_inputs]
+    [browsing(arg, browsing_inputs[arg]) for arg in browsing_inputs]
     
     # Generating the input parameter buttons
-    [write_menu(arg,default_inputs[arg]) for arg in default_inputs]
+    length_entry = None  # Initialize variable to hold reference to "length" Entry widget
+    for arg in default_inputs:
+        entry = write_menu(arg, default_inputs[arg])
+        if arg == "length":
+            length_entry = entry  # Save reference to "length" Entry widget
     
-    placeholder(0,1,"",0,0)
-    #placeholder(19,0,"",0,0)
-    button_click(19, 1, "OK", submit)
-    button_click(19, 2, "Reset", restart)
-
+    placeholder(0, 1, "", 0, 0)
+    button_click(15, 0, "OK", submit)
+    button_click(15, 1, "Reset", restart)
+    
     root.mainloop()
+    
+    parameters["delete"] = parameters.pop("Delete intermediary files")
 
     return parameters
 
@@ -643,14 +769,31 @@ def initializer(cmd):
     Makes sure the path separators, and the input parser function is correct
     for the used OS.
     Creates the output diretory and handles some parameter parsing"""
-
-    print(f"\nVersion: {version}")
-
+    
+    print(f"\n{Fore.RED} Welcome to:{Fore.RESET}\n")
+    print(f" {Fore.RED}██████╗{Fore.RESET} ███████╗ █████╗ ███████╗████████╗{Fore.RED}██████╗{Fore.RESET}  ██████╗ ")
+    print(f" {Fore.RED}╚════██╗{Fore.RESET}██╔════╝██╔══██╗██╔════╝╚══██╔══╝{Fore.RED}╚════██╗{Fore.RESET}██╔═══██╗")
+    print(f" {Fore.RED} █████╔╝{Fore.RESET}█████╗  ███████║███████╗   ██║    {Fore.RED}█████╔╝{Fore.RESET}██║   ██║")
+    print(f" {Fore.RED}██╔═══╝ {Fore.RESET}██╔══╝  ██╔══██║╚════██║   ██║   {Fore.RED}██╔═══╝ {Fore.RESET}██║▄▄ ██║")
+    print(f" {Fore.RED}███████╗{Fore.RESET}██║     ██║  ██║███████║   ██║   {Fore.RED}███████╗{Fore.RESET}╚██████╔╝")
+    print(f" {Fore.RED}╚══════╝{Fore.RESET}╚═╝     ╚═╝  ╚═╝╚══════╝   ╚═╝   {Fore.RED}╚══════╝{Fore.RESET} ╚══▀▀═╝ ")
+                                                          
+    print(f"\n{Fore.GREEN} Version: {Fore.RESET}{version}")
+    
     param = inputs_handler() if cmd is None else cmd
-
+    
+    if "test_mode" in param:
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] Running test mode!\n")
+    
+    if (param["upstream"] == None) or (param["downstream"] == None):
+        if "Variable length feature?" in param:
+            if param["Variable length feature?"] == "Yes":
+                print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] You have selected variable length features, but such mode is only implemented when 2 search sequences are provided. Only features {param['length']}bp long will be considered.\n")
+                raise Exception
+        
     param["version"] = version
     
-    quality_list = '!"#$%&' + "'()*+,-/0123456789:;<=>?@ABCDEFGHI" #Phred score
+    quality_list = '!"#$%&' + "'()*+,-/0123456789:;<=>?@ABCDEFGHI" #Phred score in order of probabilities
 
     param["quality_set"] = set(quality_list[:int(param['phred'])-1])
     param["quality_set_up"] = set(quality_list[:int(param['qual_up'])-1])
@@ -660,28 +803,37 @@ def initializer(cmd):
     param["directory"] = os.path.join(param['out'], f"2FAST2Q_output_{current_time}")
 
     if psutil.virtual_memory().percent>=75:
-        print("\nLow RAM availability detected, file processing may be slow\n")
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] Low RAM availability detected, file processing may be slow\n")
+    
+    print(f"\n{Fore.YELLOW} -- Parameters -- {Fore.RESET}")
     
     if param['Running Mode']=='C':
-        print(f"\nRunning in align and count mode with the following parameters:\n{param['miss']} mismatch allowed\nMinimal Phred Score per bp >= {param['phred']}\nFeature length: {param['length']}\nRead alignment start position: {param['start']}\n")
+        print(f"\n {Fore.GREEN}Mode: {Fore.RESET}Align and count")
+        print(f" {Fore.GREEN}Allowed mismatches per alignement: {Fore.RESET}{param['miss']}")
+        print(f" {Fore.GREEN}Minimal Phred Score per bp >= {Fore.RESET}{param['phred']}")
+        if (param['downstream'] is None) or (param['upstream'] is None):
+            print(f" {Fore.GREEN}Feature length: {Fore.RESET}{param['length']}")
+            print(f" {Fore.GREEN}Read alignment start position: {Fore.RESET}{param['start']}\n")
     else:
-        print(f"\nRunning in extract and count mode with the following parameters:\nMinimal Phred Score per bp >= {param['phred']}\n")
-        
+        print(f"\n {Fore.GREEN}Mode: {Fore.RESET}Extract and count")
+        print(f" {Fore.GREEN}Minimal Phred Score per bp >= {Fore.RESET}{param['phred']}")
+
         if param['upstream'] is not None:
-            print(f"Upstream search sequence: {param['upstream']}\n")
-            print(f"Mismatches allowed in the upstream search sequence: {param['miss_search_up']}\n")
-            print(f"Minimal Phred-score in the upstream search sequence: {param['qual_up']}\n")
+            print(f" {Fore.GREEN}Upstream search sequence: {Fore.RESET}{param['upstream']}")
+            print(f" {Fore.GREEN}Mismatches allowed in the upstream search sequence: {Fore.RESET}{param['miss_search_up']}")
+            print(f" {Fore.GREEN}Minimal Phred-score in the upstream search sequence: {Fore.RESET}{param['qual_up']}")
             
         if param['downstream'] is not None:
-            print(f"Downstream search sequence: {param['downstream']}\n")
-            print(f"Mismatches allowed in the downstream search sequence: {param['miss_search_down']}\n")
-            print(f"Minimal Phred-score in the downstream search sequence: {param['qual_down']}\n")
+            print(f" {Fore.GREEN}Downstream search sequence: {Fore.RESET}{param['downstream']}")
+            print(f" {Fore.GREEN}Mismatches allowed in the downstream search sequence: {Fore.RESET}{param['miss_search_down']}")
+            print(f" {Fore.GREEN}Minimal Phred-score in the downstream search sequence: {Fore.RESET}{param['qual_down']}")
 
         if (param['upstream'] is None) or (param['downstream'] is None):
-            print(f"Finding features with the folowing length: {param['length']}bp\n")
+            print(f" {Fore.GREEN}Finding features with the folowing length: {Fore.RESET}{param['length']}bp\n")
 
-    print(f"All data will be saved into {param['directory']}")
-
+    print(f" {Fore.GREEN}All data will be saved into {Fore.RESET}{param['directory']}")
+    print(f"\n{Fore.YELLOW} ---- {Fore.RESET}")
+    
     return param
 
 def input_parser():
@@ -689,7 +841,7 @@ def input_parser():
     """ Handles the cmd line interface, and all the parameter inputs"""
     
     global version
-    version = "2.5.2"
+    version = "2.7.3 - DEV"
     
     def current_dir_path_handling(param):
         if param[0] is None:
@@ -698,7 +850,7 @@ def input_parser():
                 file = path_finder(os.getcwd(), ["*.csv"])
                 if parameters['Running Mode']!="EC":
                     if len(file) > 1:
-                        input("There is more than one .csv in the current directory. If not directly indicating a path for sgRNA.csv, please only have 1 .csv file.") 
+                        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.RED}FATAL{Fore.RESET}] There is more than one .csv in the current directory. If not directly indicating a path for the features .csv, please have only 1 .csv file in the directory.\n")
                         raise Exception
                     if len(file) == 1:
                         parameters[param[1]]=file[0][0]
@@ -708,6 +860,7 @@ def input_parser():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-c",nargs='?',const=True,help="cmd line mode")
+    parser.add_argument("-t",nargs='?',const=True,help="Runs 2FAST2Q in test mode with example data.")
     parser.add_argument("-v",nargs='?',const=True,help="prints the installed version")
     parser.add_argument("--s",help="The full path to the directory with the sequencing files OR file")
     parser.add_argument("--g",help="The full path to the .csv file with the sgRNAs.")
@@ -739,10 +892,16 @@ def input_parser():
     
     parameters = {}
     parameters["cmd"] = True
-    paths_param = [[args.s,'seq_files'],
-                   [args.g,'feature'],
-                   [args.o,'out']]
-    
+    if args.t is None:
+        paths_param = [[args.s,'seq_files'],
+                       [args.g,'feature'],
+                       [args.o,'out']]
+    else:
+        parameters["test_mode"] = True
+        paths_param = [[pkg_resources.resource_filename(__name__, 'data/example.fastq.gz'),'seq_files'],
+                       [pkg_resources.resource_filename(__name__, 'data/D39V_guides.csv'),'feature'],
+                       [os.getcwd(),'out']]
+       
     parameters['out_file_name'] = "compiled"
     if args.fn is not None:
         parameters['out_file_name'] = args.fn
@@ -755,9 +914,9 @@ def input_parser():
     if args.pb is not None:
         parameters['Progress bar']=False
                  
-    parameters['start']=0
+    parameters['start']="0"
     if args.st is not None:
-        parameters['start']=int(args.st)
+        parameters['start']=args.st
         
     parameters['phred']=30
     if args.ph is not None:
@@ -870,11 +1029,13 @@ def compiling(param):
     if param["delete"]:
         for file in ordered_csv:
             os.remove(file)
+            
+    print(f"\n {Fore.BLUE}{datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] Analysis successfully completed")
 
-    print("\nIf you find 2FAST2Q useful, please consider citing:\nBravo AM, Typas A, Veening J. 2022. \n2FAST2Q: a general-purpose sequence search and counting program for FASTQ files. PeerJ 10:e14041\nDOI: 10.7717/peerj.14041\n")
-    
-    if not param["cmd"]:
-        input(f"\nAnalysis successfully completed\nAll the reads have been saved into {csvfile}.\nPress enter to exit")
+    print(f"\n{Fore.GREEN} If you find 2FAST2Q useful, please consider citing:{Fore.MAGENTA}\n Bravo AM, Typas A, Veening J. 2022. \n 2FAST2Q: a general-purpose sequence search and counting program for FASTQ files. PeerJ 10:e14041\n DOI: 10.7717/peerj.14041\n{Fore.RESET}")
+
+    if "test_mode" in param:
+        print(f"\n{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.YELLOW}WARNING{Fore.RESET}] Test successful. 2FAST2Q is working as intended!\n")
 
 def run_stats(headers, param, compiled, head):
     
@@ -934,6 +1095,7 @@ def run_stats(headers, param, compiled, head):
     
     fig, ax = plt.subplots(figsize=(12, int(len(global_stat)/4)))
     width = .75
+
     for i, (_,_,_,total_reads,aligned,_,_,not_aligned,q_failed) in enumerate(global_stat[header_ofset:]):   
 
         aligned = int(aligned)/int(total_reads)*100
@@ -1100,7 +1262,7 @@ def hash_reads_parsing(result,failed_reads_compiled,passed_reads_compiled,failed
     for failed,passed in zip(failed_reads_compiled,passed_reads_compiled):
         failed_reads = set.union(failed_reads,failed)
         passed_reads = {**passed_reads,**passed}
-        
+
     return failed_reads,passed_reads
 
 def hash_preprocesser(files,features,param,pool,cpu):
@@ -1110,14 +1272,16 @@ def hash_preprocesser(files,features,param,pool,cpu):
     speed advantages, as subsquent files normally share the same reads that dont
     align to anything, or reads with mismatches that indeed align"""
     
-    print("\nPlease standby for the initialization procedure.")
+    print(f"{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] Please standby for the initialization procedure.")
     result=[]
+
     for name in files[:cpu]:
         result.append(pool.apply_async(reads_counter, args=(0,0,name,features,param,cpu,set(),{},True)))
     
     compiled = [x.get() for x in result]
-    throw1,throw2,throw3,throw4,failed_reads_compiled,passed_reads_compiled = zip(*compiled)
-    
+
+    _,_,_,_,failed_reads_compiled,passed_reads_compiled,_,_ = zip(*compiled)
+
     return hash_reads_parsing(result,failed_reads_compiled,passed_reads_compiled,set(),{})
 
 def aligner_mp_dispenser(files,features,param):
@@ -1131,10 +1295,11 @@ def aligner_mp_dispenser(files,features,param):
     start,failed_reads,passed_reads = 0,set(),{}
     pool,cpu = cpu_counter(param["cpu"])
     
-    if (len(files)>cpu) & (param["miss"] != 0):
+    if param["miss"] != 0:
         failed_reads,passed_reads=hash_preprocesser(files,features,param,pool,cpu)
     
-    print(f"\nProcessing {len(files)} files. Please hold.")
+    print(f"{Fore.BLUE} {datetime.datetime.now().strftime('%c')}{Fore.RESET} [{Fore.GREEN}INFO{Fore.RESET}] Processing {len(files)} files. Please hold.")
+
     for start in range(0,len(files),cpu):
         failed_reads,passed_reads = \
         multiprocess_merger(start,failed_reads,passed_reads,files,\

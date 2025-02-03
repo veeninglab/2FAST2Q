@@ -1,95 +1,91 @@
+<div align="center">
+
+[![Actively Maintained](https://img.shields.io/badge/Maintenance%20Level-Actively%20Maintained-green.svg)](https://gist.github.com/cheerfulstoic/d107229326a01ff0f333a1d3476e068d)
+[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
+![PyPI](https://img.shields.io/pypi/v/fast2q.svg)
+
+</div>
+
 # Welcome to 2FAST2Q
-A Python3 program that counts sequence occurrences in raw FASTQ files. 
-2FAST2Q is ideal for CRISPRi-Seq, and for extracting and counting any kind of information from Illumina reads, such as barcodes.
-2FAST2Q can work with sequence mismatches, and can be used to find sequences delimited by known sequences in unaligned reads.  
+A Python3 program that counts sequence occurrences in FASTQ files. 
 
-2FAST2Q requires absolutely no installation whatsoever, and can work with any classic CRISPRi experimental setup, or be used for any kind of sequence extraction from FASTQ files.
+2FAST2Q is ideal for CRISPRi-Seq, and for extracting and counting any kind of information from reads in the fastq format, such as barcodes in Bar-seq experiments.
 
-The program is available as a standalone executable on MSwindows and MacOS, and can be downloaded from Zenodo by accessing the following link: 
-https://zenodo.org/record/5521996. MacOS users see instructions below ("Using the executable files" section)
+2FAST2Q can work with sequence mismatches, Phred-score, and be used to find and extract unknown sequences delimited by known sequences.  
 
-2FAST2Q is also available as a python package (https://pypi.org/project/fast2q/)
+2FAST2Q can extract multiple features per read using either fixed positions or delimiting search sequences.
 
-`pip install fast2q `
+2FAST2Q can work with any classic CRISPRi experimental setup, or be used for any kind of sequence extraction from FASTQ files.
 
 In here I share the original Python3 source code, fast2q.py;
 The instructions on how to use 2FAST2Q;
 And some test data to run the program.
 
-2FAST2Q is published as part of a CRISPRi-seq protocol:
-https://www.nature.com/articles/s41596-021-00639-6
+You can reference 2FAST2Q [here](https://peerj.com/articles/14041/).
 
-A more in depth description of the program is also available:
+But if you are using it as part of a CRISPRi-seq protocol, see [here](https://www.nature.com/articles/s41596-021-00639-6) instead.
 
+Despite still performing as advertised, keep in mind that 2FAST2Q is a bit like the ship of theseus and has changed over time under the same script. Some functionalities and interfaces are different from what is published. This github page is always up-to-date though. 
 
-Bravo AM, Typas A, Veening J. 2022. 2FAST2Q: a general-purpose sequence search and counting program for FASTQ files. PeerJ 10:e14041 : https://peerj.com/articles/14041/
+# 1. Instalation
 
+## PyPI
+2FAST2Q is available as a [python package](https://pypi.org/project/fast2q/) and can be installed with the following comand:
 
+```bash
+pip install fast2q
+```
 
-## How to use it
+## Bioconda
+2FAST2Q also exists as a bioconda package [here](https://anaconda.org/bioconda/fast2q)!
+
+```bash
+conda install bioconda::fast2q
+```
+
+## Nextflow
+
+If you are into nextflow, 2FAST2Q also has its own [nf-core module](https://nf-co.re/modules/fast2q/)!
+
+```bash
+nf-core modules install fast2q
+```
+
+# How to use it
 
 There are two versions of the program, with and without a basic user interface. 
 
-
-There is a graphical interface version for Windows, MacOS, and Linux.
-If for some reason the compiled version fails, please use the souce Python code from PyPI 
 
 Basic working principle behind 2FAST2Q:
 ![](https://github.com/afombravo/2FAST2Q/blob/main/graphical_workings.png)
 
 
-## Using the executable files:
 
-### 1.	
-Download the 2FAST2Q software version appropriate to the intended operating system.
+# 2. Use
 
-### 2. 
-Double click the program icon. 
+It is then possible to test if 2FAST2Q was correctly installed by running a test with demo data. 
+```bash
+2fast2q -c -t
+```
 
+At the end of a successful test, a message displaying "Test successful. 2FAST2Q is working as intended!" should be visible.
 
+## For starting the graphical interface mode:
+```bash
+2fast2q
+```
 
-### If using the linux or the MacOS version:
-
-
-
-Open a new terminal and change directory to the folder with the downloaded file
-
-`cd /user/etc/Downloads/`
-
-make the file executable by typing and entering:
-
-`chmod +x ./2FAST2Q` (change to match the correct file name) 
-
-type and enter:
-
-`./2FAST2Q` (change to match the correct file name) 
-
-
-
-### 3.
 The program will initialize after a few seconds, poping open the folowing window, and starting when 'OK' is selected. See the "inputs" section below for an explanation on these inputs.
 
-![](https://github.com/afombravo/2FAST2Q/blob/main/C_mode.gif)
+![](https://github.com/afombravo/2FAST2Q/blob/main/graphical_interface.gif)
 
 
-The default running mode is in "Counter" mode, however the user might want to run 2FAST2Q in 'Extract and Counter' mode where features are not aligned to a reference, but *de novo* extracted from the file based on indicated search sequences. Consider the folowing example:
+The default running mode is in "Counter" mode, however the user might want to run 2FAST2Q in 'Extract and Counter' mode where features are not aligned to a reference, but *de novo* extracted from the file based on indicated search sequences. 
 
-![](https://github.com/afombravo/2FAST2Q/blob/main/EC_mode.gif)
-
-
-
-## Using the non executable files (recommendable if the executable file is buggy)
-	
-
-### 1.	
-Download the 2FAST2Q Python3 module using pip install: 
-`pip install fast2q`.
-
-### 2. For starting the graphical interface mode:
-type `python -m fast2q`
-
-### 2.1 For starting the non-graphical interface mode:
-type `python -m fast2q -c`
+## For starting the non-graphical interface mode you always need to append "-c":
+```bash
+2fast2q -c
+```
 
 When running without specified parameters, 2FAST2Q will assume the current running directory has all the required files:
 
@@ -99,22 +95,20 @@ When running without specified parameters, 2FAST2Q will assume the current runni
 
 How it looks when running in the default 'Counter' mode:
 
-![](https://github.com/afombravo/2FAST2Q/blob/main/C_mode_cmd.gif)
-
-How it looks when running in the 'Extract and Counter' mode:
-
-![](https://github.com/afombravo/2FAST2Q/blob/main/Ec_mode_cmd.gif)
+![](https://github.com/afombravo/2FAST2Q/blob/main/command_interface.gif)
 
 
 There are also several optional parameters. For their description and input type. A more in-depth description is provided below:
 
-	 `python -m fast2q -h`
+	 `2fast2q -h`
 
 	 `-h, --help  show this help message and exit `
 
 	 `-c [C]      cmd line mode`
 	 
 	 `-v [V]      prints the current version`
+
+  	 `-t [T]      Runs 2FAST2Q in test mode with example data. `
 
 	 `--s S       The full path to the directory with the sequencing files OR file`
 
@@ -153,15 +147,15 @@ There are also several optional parameters. For their description and input type
 	 ` --k K       If enabled, keeps all temporary files (default is disabled) `
 
 
-## Inputs
+# 3. Inputs
 
 To run the program, three input paths are required:
 
-### 1  Directory containing the sequencing files (assumed to be the current directory when using the cmd line version and no inputs are given)
+## 1.  Directory containing the sequencing files (assumed to be the current directory when using the cmd line version and no inputs are given)
 
-A path to the folder with the sequencing files (it doesn´t matter if in .gz or .fastq.gz format as 2fast2q auto determines the correct one)
+A path to the folder with the sequencing files (it doesn´t matter if in .gz or .fastq.gz format as 2fast2q auto determines the correct one). 2FAST2Q will automatically process all the .fastq files that exist in the indicated folder.
 
-### 2  The path to the feature .csv file (optional) (assumed to be the only .csv file in the current directory when using the cmd line version and no inputs are given)
+## 2.  The path to the feature .csv file (optional) (assumed to be the only .csv file in the current directory when using the cmd line version and no inputs are given)
 Only needed when searching the fastq file for known sequences, such as with a CRISPRi-Seq experiment.
 A path to the .csv file (this format can be obtained using the "save as" option in excel) with the nucleotide sequences of all used features, and their respective names (any name can be given, as long as it doesn’t repeat). See the provided "D39V_guides.csv" sample file. (Optional, only required when running in Counting mode)	
 
@@ -170,49 +164,66 @@ A path to the .csv file (this format can be obtained using the "save as" option 
 | sgRNA0002 | AGTGTTGATTTACCAACGTT |
 
 
-Leave empty if you want to run the program in extract and count mode (extract all found features without alignements)
+
+## 2.1.  2FAST2Q can be used for finding multiple features per read. When such is desirable, the features must be separated by ":", as illustrated here:
+
+| sgRNA0001.1 | AATAGCATAGAAATCATACA:GATTACA |
+|-----------|----------------------|
+| sgRNA0001 | AATAGCATAGAAATCATACA |
 
 
-### 3 the output directory
+In this case, sgRNA0001.1 corresponds to a double sequence. Only reads containing BOTH sequences will be aligned to this sgRNA. If only the first sequence of the 2 is found, it will align to sgRNA0001, if only the second sequence is found, it will fail to align anywhere. Only the combinations present in the .csv file will be considered. 
+See section 4 for instructions on how to perform multiple sequence searches per read.
+
+For extracting all possible combinations in a file, one can use the "extract and count" mode (extract all found features without alignments) (`--mo EC`). In this case, no .csv is required as input.
+
+
+
+
+## 3. the output directory
 
 A path to the output folder (for safety, a subfolder will always be created on this directory) (2fast2q automatically creates a subdirectory within the current directory when using the cmd line version and no inputs are given)
 
 
-### 4 Parameters
 
-For extracting all sequences at a certain position in the read select the extractor + Counter (EC) mode. The default is Counter (C) mode only.
+# Some parameter explanation
 
-Progress Bar. (Default is enabled)
+For extracting all sequences at a certain position in the read select the extractor + Counter (`--mo EC`) mode. The default is Counter (`--mo C`) mode only.
 
-The minimal sequencing phred-score for each nucleotide (default = 30)
+Progress Bar (`--v`). (Default is enabled)
 
-The start position of the feature within the read (default = 0, meaning the sequenced feature is located at the first position of the read sequence)
+The minimal sequencing phred-score for each nucleotide (default = 30) (`--ph`)
 
-The length of the feature in bp (default = 20)
+The start position of the feature within the read (default = 0, meaning the sequenced feature is located at the first position of the read sequence) (`--st`)
 
-The number of allowed mismatches per feature (default = 1). When in extract + Count mode, this parameter is ignored as all different sequences are returned.
-2FAST2Q mismatch feature calculates HAMMING distance ONLY
+The length of the feature in bp (default = 20) (`--l`)
+
+The number of allowed mismatches per feature (default = 1). When in extract + Count mode, this parameter is ignored as all different sequences are returned. (`--m`)
+2FAST2Q mismatch feature calculates HAMMING distance ONLY 
 
 Keep temporary files mode (default = no).
 When enabled, deletes all temporary files. To keep all files, change to "n" in the graphical mode, or input the parameter `--k` in the cmd lines.
 
-For extracting all sequences at a certain position in the read select the extractor + Counter (EC) mode. The default is Counter (C) mode only.
-
 If the starting position varies within the read, it is possible to search for a delimiting known sequence, and then extract the sequence before/after it.
 In this case, it is allowed to input the following: 
- 1) A 5' end search sequence, and the amount of bp the program should inventory after.
- 2) A 3' end search sequence, and the amount of bp the program should inventory before.
- 3) A 5'and 3' end search sequence, the program will return and count everything in between these two.
- 4) How many mismatches are allowed in the search sequence
+
+ 1) A 5' end search sequence, and the amount of bp the program should inventory after. (example: `--us XXX --l 100`)
+ 2) A 3' end search sequence, and the amount of bp the program should inventory before. (example:`--ds YYY --l 100`)
+ 3) A 5' and 3' end search sequence, the program will return and count everything in between these two. (example:`--ds XXX --us YYY`)
+ 4) How many mismatches are allowed in the search sequence (example: `--m 2`)
+
+When searching a read for multiple sequences, one can either do so by:
+  1) confirguring different fixed positions by separating all start locations with a ",". For example: "0,20,50" - the program will search for 3 sequences per read, starting at position 0,20, and 50, with the predefided sequence length.
+  2) configuring different 5' and 3' search sequences, also separated by "," and inputted as pairs: For example: upstream (`--us`) ATCG,GGTGG & downstream (`--ds`) AATC,GCACAC will initiate, per read, searches for any features between the ATCG * AATC and GGTGG * GCACAC sequences. If found, these 2 sequences will be merged separated by ":" and either try to be aligned against any found features in the .csv file (default), or returned as they are if in "extract and count" mode (`--mo EC`). Keep in mind that when multiple feature sequences are delimited by the same search sequences, only the first instance of any sequence passing the criteria will be returned. Multiple sequences per read can only be retrieved when using different search sequences.
  
+
 
 ## While Running
 
-=================================
 
 2FAST2Q is coded to maximize any computer's processing power (it runs multiprocessed, so it can process various samples simultaneously). It is therefore advisable to not heavily use the computer while 2FAST2Q is running to avoid constraining the processor.
 
-When running 2FAST2Q in the executable form, the initialization sequence might take up to a minute. 2FAST2Q will be operational when "Version X.X.X" appears on the window.
+2FAST2Q will be operational when its logo appears on the window.
 Depending on the used computer, 2FAST2Q might take a few minutes to run, especially with large datasets and when using mismatch finding. If no errors are shown, 2FAST2Q is still running. GIVE IT TIME! 
 
 
@@ -238,7 +249,7 @@ Upon completion, several files should be seen in the indicated output folder (wh
 	e. 	2 other violin plots with the distribution of the found features per sample are also presented (normalized for reads per milion, and absolute numbers). The interquartile distribution is also ploted for each sample (25%-75%)
 
 
-### Short Explanation
+# Short Explanation on default filters
 
 2FAST2Q will return the read counts for all the features present in the input file. A read will be aligned to its features if the minimum quality score in each nucleotide is >= the indicated phred-score, and if there is less than the indicated allowed mismatches. Like said before, these parameters can be modified by the user.
 
@@ -254,6 +265,7 @@ To avoid a too highly stringent cutoff. Allowing a mismatch allows the alignment
 However, there is a safe mechanism in place to prevent 2 or more features with mismatches from being aligned to the same read (the read is discarded in this case, as there is no way of knowing to which feature the read aligns to)
 
 2FAST2Q mismatch feature calculates HAMMING distance ONLY
+
 
 ## Troubleshooting
 
